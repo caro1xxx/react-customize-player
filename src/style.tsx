@@ -3,6 +3,7 @@ export const Wrap = styled.div`
   position: relative;
   background-color: black;
   color: white;
+  cursor: default;
 `;
 
 export const Video = styled.video``;
@@ -17,6 +18,16 @@ export const Control = styled.div`
   display: flex;
   align-items: center;
   margin: 0 2%;
+  animation: show 0.2s linear;
+
+  @keyframes show {
+    from {
+      height: 0px;
+    }
+    to {
+      height: 50px;
+    }
+  }
 `;
 
 export const Bar = styled.div`
@@ -27,6 +38,7 @@ export const Bar = styled.div`
 
 export const Timestamp = styled.div`
   margin: 0 10px;
+  padding-bottom: 5px;
 `;
 
 export const QuickVideo = styled.video`
@@ -65,4 +77,38 @@ export const VolumeBack = styled.div`
 export const FullScreen = styled.div`
   position: absolute;
   right: 10px;
+  cursor: pointer;
+`;
+
+export const VolumeControl = styled.div`
+  position: absolute;
+  right: 50px;
+  cursor: pointer;
+`;
+
+export const Multiple = styled.div`
+  position: absolute;
+  right: 90px;
+  cursor: pointer;
+  font-size: 20px;
+  padding-bottom: 5px;
+`;
+
+export const MultiplePopup = styled.div`
+  user-select: none;
+  position: absolute;
+  z-index: 11;
+  right: -10px;
+  bottom: 45px;
+  font-size: 15px;
+  border-radius: 2px;
+  div {
+    background-color: #292929;
+    padding: 0 20px;
+    text-align: center;
+    line-height: 25px;
+    :hover {
+      background-color: #808080;
+    }
+  }
 `;

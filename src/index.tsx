@@ -9,9 +9,13 @@ import {
   Timestamp,
   QuickVideo,
   FullScreen,
+  VolumeControl,
+  Multiple,
+  MultiplePopup,
 } from './style';
 import { syncProgress, mouseInBar, barRelatedTime } from './utils/handlerBar';
 import { formatTime } from './utils/handlerTime';
+import { nanoid } from 'nanoid';
 
 type Props = {
   high: string;
@@ -71,11 +75,32 @@ export const ReactVideoPlayer = (props: Props) => {
   });
 
   // 音量
-  const volume = useRef(1);
-  const [renderVolume, setRenderVolume] = useState('10%');
+  const volume = useRef(0);
+  const [renderVolume, setRenderVolume] = useState('0%');
   //@ts-ignore
   const [renderVolumeShow, setRenderVolumeShow] = useState(0);
 
+  // 倍数
+  const [multipleStyle, setMultipleStyle] = useState({
+    opacity: 0,
+    currentMultiple: 4,
+    multiple: ['3.0', '2.5', '2.0', '1.5', '1.0', '0.5'],
+  });
+
+  // 控制台
+  //@ts-ignore
+  const [controlStyle, setControlStyle] = useState({
+    display: 'none',
+    cursor: 'default',
+  });
+
+  const isMouseInControlAndStill = useRef({
+    enterControl: false,
+    timer: null,
+  }) as React.MutableRefObject<{
+    enterControl: boolean;
+    timer: null | NodeJS.Timeout;
+  }>;
   // 播放
   const play = () => {
     (videoRef as any).current.play();
@@ -360,6 +385,111 @@ export const ReactVideoPlayer = (props: Props) => {
     }
   }
 
+  //点击控制台的音量按钮
+  const clickControlVolume = () => {
+    if ((videoRef as any).current.muted) {
+      if (volume.current === 0) {
+        (videoRef as any).current.muted = false;
+        volume.current = 1;
+        (videoRef as any).current.volume = volume.current / 10;
+      } else {
+        (videoRef as any).current.muted = false;
+      }
+      setRenderVolume(volume.current * 10 + '%');
+    } else {
+      (videoRef as any).current.muted = true;
+      setRenderVolume('静音');
+    }
+  };
+
+  // 鼠标点击倍数
+  //@ts-ignore
+  const clickMultiple = () => {
+    if (multipleStyle.opacity) {
+      setMultipleStyle({
+        opacity: 0,
+        currentMultiple: multipleStyle.currentMultiple,
+        multiple: multipleStyle.multiple,
+      });
+    } else {
+      setMultipleStyle({
+        opacity: 1,
+        currentMultiple: multipleStyle.currentMultiple,
+        multiple: multipleStyle.multiple,
+      });
+    }
+  };
+
+  //选择倍数
+  const selectMultiple = (multiple: number) => {
+    (videoRef as any).current.playbackRate = Number.parseFloat(
+      multipleStyle.multiple[multiple]
+    );
+    setMultipleStyle({
+      opacity: 0,
+      currentMultiple: multiple,
+      multiple: multipleStyle.multiple,
+    });
+  };
+
+  // 离开倍数
+  //@ts-ignore
+  const mouseLeaveMultiple = () => {
+    setMultipleStyle({
+      opacity: 0,
+      currentMultiple: multipleStyle.currentMultiple,
+      multiple: multipleStyle.multiple,
+    });
+  };
+
+  // 鼠标进入控制台
+  const mouseControl = (type: number) => {
+    if (type) {
+      setControlStyle({
+        display: 'flex',
+        cursor: 'default',
+      });
+      isMouseInControlAndStill.current.enterControl = true;
+      // 启动定时器
+      isMouseInControlAndStill.current.timer = setTimeout(() => {
+        setControlStyle({
+          display: 'none',
+          cursor: 'none',
+        });
+      }, 2000);
+    } else {
+      setControlStyle({
+        display: 'none',
+        cursor: 'default',
+      });
+      isMouseInControlAndStill.current.enterControl = false;
+      // 重置定时器
+      if (isMouseInControlAndStill.current.timer) {
+        clearTimeout(isMouseInControlAndStill.current.timer);
+      }
+    }
+  };
+
+  // 鼠标在控制台移动
+  const mouseMoveInControl = () => {
+    if (isMouseInControlAndStill.current.timer) {
+      if (isMouseInControlAndStill.current.timer) {
+        clearTimeout(isMouseInControlAndStill.current.timer);
+      }
+    }
+    setControlStyle({
+      display: 'flex',
+      cursor: 'default',
+    });
+    // 启动定时器
+    isMouseInControlAndStill.current.timer = setTimeout(() => {
+      setControlStyle({
+        display: 'none',
+        cursor: 'none',
+      });
+    }, 2000);
+  };
+
   /**
    * 监听fullScreen的变化,如果fullScreen发送变化
    * 那么就说明需要更改进度条的长度已经缓存条的长度
@@ -392,12 +522,25 @@ export const ReactVideoPlayer = (props: Props) => {
     if (volume.current !== 0) {
       (videoRef as any).current.muted = false;
       (videoRef as any).current.volume = volume.current / 10;
+    } else {
+      setRenderVolume('静音');
     }
   }, []);
 
   return (
     <Wrap
-      style={{ height: videoState.height, width: videoState.width }}
+      onMouseEnter={() => {
+        mouseControl(1);
+      }}
+      onMouseLeave={() => {
+        mouseControl(0);
+      }}
+      onMouseMove={mouseMoveInControl}
+      style={{
+        height: videoState.height,
+        width: videoState.width,
+        cursor: controlStyle.cursor,
+      }}
       ref={wrapRef}
     >
       {/* 视频 */}
@@ -452,7 +595,7 @@ export const ReactVideoPlayer = (props: Props) => {
         </Volume>
       </VolumeBack>
       {/* 控制台 */}
-      <Control>
+      <Control style={{ display: controlStyle.display }}>
         <div
           onMouseEnter={mouseEnter}
           onMouseMove={e => mouseMove(e)}
@@ -531,6 +674,58 @@ export const ReactVideoPlayer = (props: Props) => {
         <Timestamp>
           {videoState.currentTime}&nbsp;/&nbsp;{videoState.duration}
         </Timestamp>
+        <Multiple>
+          <div onClick={clickMultiple}>
+            {multipleStyle.multiple[multipleStyle.currentMultiple]}x
+          </div>
+          <MultiplePopup
+            onMouseLeave={mouseLeaveMultiple}
+            style={{ opacity: multipleStyle.opacity }}
+          >
+            {multipleStyle.multiple.map((item, index) => {
+              return (
+                <div key={nanoid()} onClick={() => selectMultiple(index)}>
+                  {item}
+                </div>
+              );
+            })}
+          </MultiplePopup>
+        </Multiple>
+        <VolumeControl onClick={clickControlVolume}>
+          {renderVolume === '静音' ? (
+            <svg
+              className="icon"
+              viewBox="0 0 1024 1024"
+              version="1.1"
+              xmlns="http://www.w3.org/2000/svg"
+              p-id="6518"
+              width="25"
+              height="25"
+            >
+              <path
+                d="M225.680461 326.598406c-0.419556-0.019443-0.818645-0.019443-1.237177-0.019443L101.812315 326.578963c-22.753213 0-40.876989 18.24248-40.876989 40.777729l0 286.336424c0 22.534226 18.302855 40.777729 40.876989 40.777729l122.629945 0c0.079818 0 0.119727 0 0.198521 0l0 0.157589 300.289204 194.444551c7.125281 6.108115 16.405645 9.781784 26.526143 9.781784 22.573111 0 40.874943-18.301831 40.874943-40.878013 0-1.87572-0.119727-3.711532-0.360204-5.509481L591.970868 168.58151c0.239454-1.795902 0.360204-3.632737 0.360204-5.509481 0-22.574135-18.302855-40.876989-40.874943-40.876989-9.301853 0-17.884322 3.113921-24.750707 8.343015L225.680461 326.598406zM859.567485 510.524392l91.952248-91.951225c11.495822-11.517311 11.576663-30.558993-0.13917-42.274826-11.795651-11.795651-30.636764-11.755742-42.273802-0.140193l-91.953272 91.953272-91.950202-91.953272c-11.639085-11.616572-30.479175-11.655458-42.275849 0.140193-11.715833 11.715833-11.633968 30.757514-0.13917 42.274826l91.952248 91.951225-91.952248 91.953272c-11.494799 11.515265-11.576663 30.556946 0.13917 42.272779 11.796674 11.796674 30.636764 11.756765 42.275849 0.140193l91.950202-91.951225 91.953272 91.951225c11.636015 11.617595 30.477129 11.657504 42.273802-0.140193 11.715833-11.714809 11.634991-30.757514 0.13917-42.272779L859.567485 510.524392z"
+                p-id="6519"
+                fill="#fff"
+              ></path>
+            </svg>
+          ) : (
+            <svg
+              className="icon"
+              viewBox="0 0 1024 1024"
+              version="1.1"
+              xmlns="http://www.w3.org/2000/svg"
+              p-id="5477"
+              width="25"
+              height="25"
+            >
+              <path
+                d="M260.256 356.576l204.288-163.968a32 32 0 0 1 52.032 24.96v610.432a32 32 0 0 1-51.968 24.992l-209.92-167.552H96a32 32 0 0 1-32-32v-264.864a32 32 0 0 1 32-32h164.256zM670.784 720.128a32 32 0 0 1-44.832-45.664 214.08 214.08 0 0 0 64.32-153.312 213.92 213.92 0 0 0-55.776-144.448 32 32 0 1 1 47.36-43.04 277.92 277.92 0 0 1 72.416 187.488 278.08 278.08 0 0 1-83.488 198.976zM822.912 858.88a32 32 0 1 1-45.888-44.608A419.008 419.008 0 0 0 896 521.152c0-108.704-41.376-210.848-114.432-288.384a32 32 0 0 1 46.592-43.872c84.16 89.28 131.84 207.04 131.84 332.256 0 127.84-49.76 247.904-137.088 337.728z"
+                p-id="5478"
+                fill="#fff"
+              ></path>
+            </svg>
+          )}
+        </VolumeControl>
         <FullScreen>
           {fullScreen ? (
             <svg

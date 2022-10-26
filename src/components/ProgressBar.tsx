@@ -13,6 +13,7 @@ const Wrap = styled.div`
 type Props = {
   wrapLeft: number;
   goto: (px: number) => void;
+  showVideoDetail: (px: number) => void;
   progressWidth: number;
 };
 //@ts-ignore
@@ -44,7 +45,7 @@ const ProgressBar = (props: Props) => {
     },
   ]);
 
-  // 鼠标在bar内移动
+  // 鼠标点击bar
   const goTo = async (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     let res = await goToPx(props.wrapLeft, e.pageX);
     await props.goto(res);
@@ -55,6 +56,14 @@ const ProgressBar = (props: Props) => {
       return item;
     });
     setBarState(newBarState);
+  };
+
+  // 鼠标在bar内移动
+  const moveToBarShowDetail = async (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
+    let res = await goToPx(props.wrapLeft, e.pageX);
+    props.showVideoDetail(res);
   };
 
   // 监听由上层传来的progress进度变化
@@ -73,6 +82,7 @@ const ProgressBar = (props: Props) => {
       onMouseDown={e => {
         goTo(e);
       }}
+      onMouseMove={e => moveToBarShowDetail(e)}
     >
       {barState.map(item => {
         return (

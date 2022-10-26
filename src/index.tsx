@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import Control from './components/Control';
 import { formatTime, autoPlayTime, gotoPxToTime } from './utils/Time';
 import ProgressBar from './components/ProgressBar';
+import DetailVideo from './components/DetailVideo';
 const Wrap = styled.div`
   position: relative;
   display: inline-block;
@@ -35,7 +36,12 @@ export const ReactVideoPlayer = (props: Props) => {
   });
   const [progressWidth, setProgressWidth] = useState(0);
   const videoForwardpx = useRef(0);
+  const isGotoFlag = useRef(false);
   const timeCache = useRef(0);
+  const [DetailVideoCurrentTime, setDetailVideoCurrentTime] = useState({
+    current: 0,
+  });
+
   // 监听页面点击事件
   const clickElement = (
     e: React.MouseEvent<HTMLDivElement, MouseEvent>
@@ -73,20 +79,25 @@ export const ReactVideoPlayer = (props: Props) => {
       return;
     if (timeCache.current === parseInt(VideoRef.current.currentTime + ''))
       return;
+    if (isGotoFlag.current) {
+      isGotoFlag.current = false;
+      return;
+    }
     let progress = await autoPlayTime(
-      videoForwardpx.current,
-      progressWidth,
-      VideoRef.current.duration,
-      VideoRef.current.currentTime,
-      warpInfo.realWith - 40
+      warpInfo.realWith - 40 - progressWidth,
+      VideoRef.current.duration - VideoRef.current.currentTime,
+      progressWidth
     );
-    console.log(progress);
+    console.log(progressWidth);
+    progress =
+      progress > warpInfo.realWith - 40 ? warpInfo.realWith - 40 : progress;
+
+    setProgressWidth(progress);
     let current = await formatTime(VideoRef.current.currentTime);
     setVideoInfo({
       currentTime: current,
       duration: VideoInfo.duration,
     });
-    setProgressWidth(progress);
     timeCache.current = parseInt(VideoRef.current.currentTime + '');
   };
 
@@ -111,10 +122,12 @@ export const ReactVideoPlayer = (props: Props) => {
 
   // 跳转
   const goToDesignateTime = async (px: number) => {
+    isGotoFlag.current = true;
     if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
       return;
     videoForwardpx.current = px;
     let res = await gotoPxToTime(
+      warpInfo.offleft,
       warpInfo.realWith,
       px,
       VideoRef.current.duration
@@ -122,6 +135,22 @@ export const ReactVideoPlayer = (props: Props) => {
     VideoRef.current.currentTime = res;
     setProgressWidth(px);
     return;
+  };
+
+  //显示视频缩略图
+  const showVideoDetail = async (px: number) => {
+    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
+      return;
+    // @ts-ignore
+    let res = await gotoPxToTime(
+      warpInfo.offleft,
+      warpInfo.realWith,
+      px,
+      VideoRef.current.duration
+    );
+    setDetailVideoCurrentTime({
+      current: res,
+    });
   };
 
   useEffect(() => {
@@ -173,9 +202,11 @@ export const ReactVideoPlayer = (props: Props) => {
       >
         <source type="video/mp4" src={props.videoUrl}></source>
       </Video>
+      <DetailVideo current={DetailVideoCurrentTime.current}></DetailVideo>
       <ProgressBar
         progressWidth={progressWidth}
         goto={goToDesignateTime}
+        showVideoDetail={showVideoDetail}
         wrapLeft={warpInfo.offleft}
       ></ProgressBar>
       <Control

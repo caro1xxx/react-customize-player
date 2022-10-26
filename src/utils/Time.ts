@@ -15,6 +15,7 @@ export const formatTime = (time: number) => {
 };
 
 export const gotoPxToTime = (
+  left: number,
   width: number,
   gotoPx: number,
   duration: number
@@ -23,7 +24,7 @@ export const gotoPxToTime = (
     .then(() => {
       let res = (width - 40) / 100;
       let durationPrecent = duration / 100;
-      let goto = gotoPx / res;
+      let goto = (gotoPx - left) / res;
       return goto * durationPrecent;
     })
     .catch(e => {
@@ -31,22 +32,15 @@ export const gotoPxToTime = (
     });
 };
 
+// @ts-ignore
 export const autoPlayTime = (
-  videoForwardpx: number,
-  progressWidth: number,
-  duration: number,
-  currentTime: number,
-  width: number
+  remainingWidth: number,
+  remainingTime: number,
+  progressWidth: number
 ) => {
   return Promise.resolve(true)
     .then(() => {
-      if (progressWidth + width / duration > width) {
-        return width;
-      }
-      return progressWidth + width / duration;
-      let m = duration - currentTime;
-      let w = width - videoForwardpx;
-      return progressWidth + w / m;
+      return progressWidth + remainingWidth / remainingTime;
     })
     .catch(e => {
       return e;

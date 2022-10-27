@@ -1,219 +1,319 @@
-import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
-import Control from './components/Control';
-import { formatTime, autoPlayTime, gotoPxToTime } from './utils/Time';
-import ProgressBar from './components/ProgressBar';
-import DetailVideo from './components/DetailVideo';
-const Wrap = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const Video = styled.video`
-  z-index: 1;
-`;
-
+import React, { useState, useRef, useEffect } from 'react';
+import Play from './components/Play';
+import Pause from './components/Pause';
+import {
+  Wrap,
+  Video,
+  Control,
+  StampTime,
+  Bar,
+  BackBar,
+  ProgressBar,
+  BufferBar,
+  DetailVideo,
+} from './style';
+import { formatTime, forwordPxToVideoTime, getDetailLeft } from './utils/time';
+import { caculationCurrentSecondTopx, getForwordPx } from './utils/bar';
 type Props = {
-  height: string;
-  width: string;
+  high: string;
+  long: string;
   videoUrl: string;
+  minVideoUrl?: string;
+  bufferColor?: string;
+  progressColor?: string;
+  backgroundFillColor?: string;
 };
 
-// @ts-ignore
+//@ts-ignore
 export const ReactVideoPlayer = (props: Props) => {
-  const VideoRef = useRef(null) as React.RefObject<HTMLVideoElement> | null;
-  const [warpInfo, setWrapInof] = useState({
-    height: props.height,
-    width: props.width,
+  const [sharedState, setSharedState] = useState({
+    height: props.high,
+    width: props.long,
+    offsetLeft: 0,
+    offsetWidth: 0,
+    duration: 0,
+    formatDuration: '00:00:00',
     videoUrl: props.videoUrl,
-    offleft: 0,
-    realWith: 0,
+    minVideoUrl: props.minVideoUrl || 'none',
+    bufferColor: props.bufferColor || '#58a8e9',
+    progressColor: props.progressColor || '#0d6efd',
+    background: props.backgroundFillColor || 'black',
   });
-  const [PlayFlag, setPlayFlag] = useState(true);
-  const [VideoInfo, setVideoInfo] = useState({
-    currentTime: '00:00:00',
-    duration: '00:00:00',
+  const wrapRef = useRef(null) as React.RefObject<HTMLDivElement> | null;
+  const videoRef = useRef(null) as React.RefObject<HTMLVideoElement> | null;
+  const DetailVideoRef = useRef(null) as React.RefObject<
+    HTMLVideoElement
+  > | null;
+  const [flag, setFlag] = useState({
+    isPlay: false,
+    formatCurrentTime: '00:00:00',
+    isEnterBar: false,
+    isCurrentClickBar: false,
   });
-  const [progressWidth, setProgressWidth] = useState(0);
-  const videoForwardpx = useRef(0);
-  const isGotoFlag = useRef(false);
-  const timeCache = useRef(0);
-  const [DetailVideoCurrentTime, setDetailVideoCurrentTime] = useState({
-    current: 0,
+  const [barState, setBarState] = useState({
+    height: '2px',
+    bufferWidth: '0px',
+    progressWidth: '0px',
+  });
+  const [DetailVideoState, setDetailVideoState] = useState({
+    display: 'none',
+    left: '0px',
+    currentTime: 0,
   });
 
-  // 监听页面点击事件
-  const clickElement = (
-    e: React.MouseEvent<HTMLDivElement, MouseEvent>
-  ): void => {
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    // 播放||暂停
-    if (e.target === VideoRef.current) {
-      if (!PlayFlag) {
-        VideoRef.current.pause();
-        setPlayFlag(true);
+  // 播放暂停
+  const playOrPause = () => {
+    if (videoRef !== null && videoRef.current) {
+      // 暂停
+      let flagCopy = { ...flag };
+      if (flag.isPlay) {
+        videoRef.current.pause();
+        flagCopy.isPlay = false;
+        setFlag(flagCopy);
       } else {
-        VideoRef.current.play();
-        setPlayFlag(false);
+        // 播放
+        videoRef.current.play();
+        flagCopy.isPlay = true;
+        setFlag(flagCopy);
       }
     }
   };
 
-  // 点击控制台中的播放
-  const controlPlayVideo = () => {
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    if (!PlayFlag) {
-      VideoRef.current.pause();
-      setPlayFlag(true);
-    } else {
-      VideoRef.current.play();
-      setPlayFlag(false);
+  // 视频加载第一帧后获取各种信息
+  const getInfo = async () => {
+    if (
+      wrapRef !== null &&
+      wrapRef.current &&
+      videoRef !== null &&
+      videoRef.current
+    ) {
+      let shared = { ...sharedState };
+      shared.offsetLeft = wrapRef.current.offsetLeft;
+      shared.offsetWidth = wrapRef.current.offsetWidth;
+      shared.duration = videoRef.current.duration;
+      shared.formatDuration = await formatTime(videoRef.current.duration);
+      setSharedState(shared);
     }
   };
 
-  // 正在播放中
-  const playing = async () => {
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    if (timeCache.current === parseInt(VideoRef.current.currentTime + ''))
-      return;
-    if (isGotoFlag.current) {
-      isGotoFlag.current = false;
-      return;
+  // 更新当前时间到屏幕
+  const updateCurrent = async () => {
+    if (flag.isCurrentClickBar) return;
+    if (videoRef !== null && videoRef.current) {
+      let flagCopy = { ...flag };
+      flagCopy.formatCurrentTime = await formatTime(
+        videoRef.current.currentTime
+      );
+      setFlag(flagCopy);
     }
-    let progress = await autoPlayTime(
-      warpInfo.realWith - 40 - progressWidth,
-      VideoRef.current.duration - VideoRef.current.currentTime,
-      progressWidth
-    );
-    console.log(progressWidth);
-    progress =
-      progress > warpInfo.realWith - 40 ? warpInfo.realWith - 40 : progress;
-
-    setProgressWidth(progress);
-    let current = await formatTime(VideoRef.current.currentTime);
-    setVideoInfo({
-      currentTime: current,
-      duration: VideoInfo.duration,
-    });
-    timeCache.current = parseInt(VideoRef.current.currentTime + '');
   };
 
-  // 获取视频总时长
-  const getVideoDuration = async () => {
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    let duration = await formatTime(VideoRef.current.duration);
-    setVideoInfo({
-      currentTime: VideoInfo.currentTime,
-      duration: duration,
-    });
-    let wrap = document.getElementById('warpper');
-    setWrapInof({
-      height: warpInfo.height,
-      width: warpInfo.width,
-      videoUrl: warpInfo.videoUrl,
-      offleft: (wrap as HTMLElement).offsetLeft,
-      realWith: (wrap as HTMLElement).offsetWidth,
-    });
+  // 更新进度条
+  const updateProgressBar = () => {
+    if (flag.isCurrentClickBar) return;
+    if (
+      videoRef !== null &&
+      videoRef.current &&
+      wrapRef !== null &&
+      wrapRef.current
+    ) {
+      let res = caculationCurrentSecondTopx(
+        videoRef.current.duration,
+        videoRef.current.currentTime
+      );
+      let BarStateCopy = { ...barState };
+      BarStateCopy.progressWidth = res + '%';
+      setBarState(BarStateCopy);
+    }
   };
 
-  // 跳转
-  const goToDesignateTime = async (px: number) => {
-    isGotoFlag.current = true;
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    videoForwardpx.current = px;
-    let res = await gotoPxToTime(
-      warpInfo.offleft,
-      warpInfo.realWith,
+  // 更新缓冲条
+  const updateBufferBar = () => {
+    if (videoRef !== null && videoRef.current) {
+      let BarStateCopy = { ...barState };
+      BarStateCopy.bufferWidth =
+        (videoRef.current.buffered.end(videoRef.current.buffered.length - 1) /
+          videoRef.current.duration) *
+          100 +
+        '%';
+      setBarState(BarStateCopy);
+    }
+  };
+
+  // 播放结束
+  const playEnd = () => {
+    let flagCopy = { ...flag };
+    flagCopy.isPlay = false;
+    setFlag(flagCopy);
+  };
+
+  /**
+   * bar相关
+   */
+  const mouseEnterBar = () => {
+    let flagCopy = { ...flag };
+    flagCopy.isEnterBar = true;
+    let barStateCopy = { ...barState };
+    barStateCopy.height = '4px';
+    setBarState(barStateCopy);
+    setFlag(flagCopy);
+  };
+
+  const mouseLeaveBar = () => {
+    if (!flag.isEnterBar) return;
+    let flagCopy = { ...flag };
+    flagCopy.isEnterBar = false;
+    let barStateCopy = { ...barState };
+    barStateCopy.height = '2px';
+    let DetailVideoStateCopy = { ...DetailVideoState };
+    DetailVideoStateCopy.display = 'none';
+    setDetailVideoState(DetailVideoStateCopy);
+    setBarState(barStateCopy);
+    setFlag(flagCopy);
+  };
+
+  const mouseInBarMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (!flag.isEnterBar) return false;
+    if (DetailVideoRef !== null && DetailVideoRef.current) {
+      let res = getDetailLeft(sharedState.offsetLeft + 20, e.pageX);
+      let px = getForwordPx(sharedState.offsetLeft + 20, e.pageX);
+      let time = forwordPxToVideoTime(
+        px,
+        sharedState.duration,
+        sharedState.offsetWidth - 40
+      );
+      let DetailVideoStateCopy = { ...DetailVideoState };
+      DetailVideoRef.current.currentTime = time;
+      DetailVideoStateCopy.left = res + 'px';
+      DetailVideoStateCopy.display = 'block';
+      setDetailVideoState(DetailVideoStateCopy);
+    }
+    return false;
+  };
+
+  const mouseDownBar = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    let flagCopy = { ...flag };
+    flagCopy.isCurrentClickBar = true;
+    setFlag(flagCopy);
+    let BarStateCopy = { ...barState };
+    let px = getForwordPx(sharedState.offsetLeft + 20, e.pageX);
+    BarStateCopy.progressWidth = px + 'px';
+    setBarState(BarStateCopy);
+    let time = forwordPxToVideoTime(
       px,
-      VideoRef.current.duration
+      sharedState.duration,
+      sharedState.offsetWidth - sharedState.offsetLeft - 40
     );
-    VideoRef.current.currentTime = res;
-    setProgressWidth(px);
-    return;
+    if (videoRef !== null && videoRef.current) {
+      videoRef.current.currentTime = time;
+    }
   };
 
-  //显示视频缩略图
-  const showVideoDetail = async (px: number) => {
-    if (!((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current))
-      return;
-    // @ts-ignore
-    let res = await gotoPxToTime(
-      warpInfo.offleft,
-      warpInfo.realWith,
-      px,
-      VideoRef.current.duration
-    );
-    setDetailVideoCurrentTime({
-      current: res,
-    });
+  const mouseUpBar = () => {
+    let flagCopy = { ...flag };
+    flagCopy.isCurrentClickBar = false;
+    if (flag.isPlay === false) {
+      flagCopy.isPlay = true;
+      if (videoRef !== null && videoRef.current) {
+        videoRef.current.play();
+      }
+    }
+    setFlag(flagCopy);
   };
 
   useEffect(() => {
-    // 监听窗口变化
-    window.onresize = () => {
-      let wrap = document.getElementById('warpper');
-      setWrapInof({
-        height: warpInfo.height,
-        width: warpInfo.width,
-        videoUrl: warpInfo.videoUrl,
-        offleft: (wrap as HTMLElement).offsetLeft,
-        realWith: (wrap as HTMLElement).offsetWidth,
-      });
-    };
-    // 监听键盘事件
     window.onkeydown = (e: KeyboardEvent) => {
-      if (
-        !((VideoRef as React.RefObject<HTMLVideoElement>) && VideoRef?.current)
-      )
-        return;
       switch (e.code) {
         case 'Space':
-          controlPlayVideo();
           break;
       }
     };
-    // clear event
-    return () => {
-      window.onresize = null;
-      window.onkeydown = null;
+    window.onresize = () => {
+      getInfo();
     };
-  });
+    // clear cyle
+    return () => {
+      window.onkeydown = null;
+      window.onresize = null;
+    };
+  }, []);
 
   return (
     <Wrap
-      id="warpper"
-      onClick={e => {
-        clickElement(e);
+      style={{
+        height: sharedState.height,
+        width: sharedState.width,
+        backgroundColor: sharedState.background,
       }}
-      style={{ height: warpInfo.height, width: warpInfo.width }}
+      ref={wrapRef}
     >
+      {/* 视频 */}
       <Video
-        ref={VideoRef}
+        style={{ height: sharedState.height, width: sharedState.width }}
         muted
-        preload="meta"
-        style={{ height: warpInfo.height, width: warpInfo.width }}
-        onTimeUpdate={playing}
-        onLoadedData={getVideoDuration}
+        ref={videoRef}
+        onClick={playOrPause}
+        onLoadedData={getInfo}
+        onTimeUpdate={() => {
+          updateCurrent();
+          updateProgressBar();
+        }}
+        onProgress={updateBufferBar}
+        onEnded={playEnd}
       >
-        <source type="video/mp4" src={props.videoUrl}></source>
+        <source src={sharedState.videoUrl} />
       </Video>
-      <DetailVideo current={DetailVideoCurrentTime.current}></DetailVideo>
-      <ProgressBar
-        progressWidth={progressWidth}
-        goto={goToDesignateTime}
-        showVideoDetail={showVideoDetail}
-        wrapLeft={warpInfo.offleft}
-      ></ProgressBar>
-      <Control
-        isPlayFlag={PlayFlag}
-        play={controlPlayVideo}
-        VideoInfo={VideoInfo}
-      ></Control>
+      {/* 缩略图 */}
+      <DetailVideo
+        ref={DetailVideoRef}
+        muted
+        style={{
+          left: DetailVideoState.left,
+          display: DetailVideoState.display,
+        }}
+      >
+        <source src={sharedState.minVideoUrl} />
+      </DetailVideo>
+      {/* 进度条 */}
+      <Bar
+        onMouseEnter={mouseEnterBar}
+        onMouseLeave={mouseLeaveBar}
+        onMouseMove={e => {
+          mouseInBarMove(e);
+        }}
+        onMouseDown={e => {
+          mouseDownBar(e);
+        }}
+        onMouseUp={mouseUpBar}
+      >
+        {/* 进度条 */}
+        <ProgressBar
+          style={{
+            width: barState.progressWidth,
+            height: barState.height,
+            backgroundColor: sharedState.progressColor,
+          }}
+        ></ProgressBar>
+        {/* 缓冲条 */}
+        <BufferBar
+          style={{
+            width: barState.bufferWidth,
+            height: barState.height,
+            backgroundColor: sharedState.bufferColor,
+          }}
+        ></BufferBar>
+        {/* 背景条 */}
+        <BackBar style={{ height: barState.height }}></BackBar>
+      </Bar>
+      {/* 控制台 */}
+      <Control>
+        <div onClick={playOrPause}>
+          {flag.isPlay ? <Pause></Pause> : <Play></Play>}
+        </div>
+        <StampTime>
+          {flag.formatCurrentTime} / {sharedState.formatDuration}
+        </StampTime>
+      </Control>
     </Wrap>
   );
 };

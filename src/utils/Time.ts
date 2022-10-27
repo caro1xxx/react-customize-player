@@ -1,48 +1,23 @@
 export const formatTime = (time: number) => {
-  return Promise.resolve(true)
-    .then(() => {
-      let h: number | string = parseInt(time / 3600 + '');
-      h = h < 10 ? '0' + h : h;
-      let m: number | string = parseInt((time % 3600) / 60 + '');
-      m = m < 10 ? '0' + m : m;
-      let s: number | string = parseInt((time % 60) + '');
-      s = s < 10 ? '0' + s : s;
-      return h + ':' + m + ':' + s;
-    })
-    .catch(e => {
-      return e;
-    });
+  return Promise.resolve(true).then(() => {
+    let h = parseInt(time / 3600 + '');
+    let hour = h < 10 ? '0' + h : h;
+    let m = parseInt((time % 3600) / 60 + '');
+    let mins = m < 10 ? '0' + m : m;
+    let s = parseInt((time % 60) + '');
+    let second = s < 10 ? '0' + s : s;
+    return hour + ':' + mins + ':' + second;
+  });
 };
 
-export const gotoPxToTime = (
-  left: number,
-  width: number,
-  gotoPx: number,
-  duration: number
+export const forwordPxToVideoTime = (
+  forwordPx: number,
+  duration: number,
+  width: number
 ) => {
-  return Promise.resolve(true)
-    .then(() => {
-      let res = (width - 40) / 100;
-      let durationPrecent = duration / 100;
-      let goto = (gotoPx - left) / res;
-      return goto * durationPrecent;
-    })
-    .catch(e => {
-      return e;
-    });
+  return duration / (width / forwordPx);
 };
 
-// @ts-ignore
-export const autoPlayTime = (
-  remainingWidth: number,
-  remainingTime: number,
-  progressWidth: number
-) => {
-  return Promise.resolve(true)
-    .then(() => {
-      return progressWidth + remainingWidth / remainingTime;
-    })
-    .catch(e => {
-      return e;
-    });
+export const getDetailLeft = (left: number, pageX: number) => {
+  return pageX - left - 70;
 };

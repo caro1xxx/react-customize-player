@@ -5,13 +5,11 @@ import { ReactVideoPlayer } from '../.';
 const App = () => {
   return (
     <div>
-      <div
-        style={{ width: '100px', height: '100px', display: 'inline-block' }}
-      ></div>
       <ReactVideoPlayer
-        height="340px"
-        width="600px"
-        videoUrl="https://bezos.life/download.mp4"
+        high="120px"
+        long="200px"
+        videoUrl="http://bezos.life/download.mp4"
+        minVideoUrl=""
       />
     </div>
   );

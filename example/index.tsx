@@ -6,10 +6,10 @@ const App = () => {
   return (
     <div>
       <ReactVideoPlayer
-        high="120px"
-        long="200px"
+        high="530px"
+        long="700px"
         videoUrl="http://bezos.life/download.mp4"
-        minVideoUrl=""
+        bufferColor="pink"
       />
     </div>
   );

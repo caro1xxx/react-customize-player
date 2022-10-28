@@ -11,6 +11,11 @@ import {
   ProgressBar,
   BufferBar,
   DetailVideo,
+  Load,
+  Loading,
+  VolumeBack,
+  Volume,
+  ControlVolume,
 } from './style';
 import { formatTime, forwordPxToVideoTime, getDetailLeft } from './utils/time';
 import { caculationCurrentSecondTopx, getForwordPx } from './utils/bar';
@@ -45,11 +50,14 @@ export const ReactVideoPlayer = (props: Props) => {
     HTMLVideoElement
   > | null;
   const [flag, setFlag] = useState({
-    isPlay: false,
     formatCurrentTime: '00:00:00',
     isEnterBar: false,
     isCurrentClickBar: false,
+    isWaitBuffer: false,
+    volume: 0,
+    isShowVolume: 0,
   });
+  const [isPlay, setIsPlay] = useState(false);
   const [barState, setBarState] = useState({
     height: '2px',
     bufferWidth: '0px',
@@ -61,21 +69,28 @@ export const ReactVideoPlayer = (props: Props) => {
     currentTime: 0,
   });
 
+  const [nonStateDep, setNonStateDep] = useState({
+    isShowVolumeBack: false,
+    isShowLoadingBack: false,
+  });
+
+  const timer = useRef({ volumeTimer: null as null | NodeJS.Timeout });
+
   // 播放暂停
   const playOrPause = () => {
     if (videoRef !== null && videoRef.current) {
       // 暂停
       let flagCopy = { ...flag };
-      if (flag.isPlay) {
+      if (isPlay) {
         videoRef.current.pause();
-        flagCopy.isPlay = false;
-        setFlag(flagCopy);
+        setIsPlay(false);
       } else {
         // 播放
         videoRef.current.play();
-        flagCopy.isPlay = true;
-        setFlag(flagCopy);
+        setIsPlay(true);
       }
+      flagCopy.volume = videoRef.current.volume;
+      setFlag(flagCopy);
     }
   };
 
@@ -93,6 +108,11 @@ export const ReactVideoPlayer = (props: Props) => {
       shared.duration = videoRef.current.duration;
       shared.formatDuration = await formatTime(videoRef.current.duration);
       setSharedState(shared);
+      let flagCopy = { ...flag };
+      flagCopy.volume = videoRef.current.volume;
+      videoRef.current.pause();
+      setIsPlay(false);
+      setFlag(flagCopy);
     }
   };
 
@@ -143,8 +163,36 @@ export const ReactVideoPlayer = (props: Props) => {
   // 播放结束
   const playEnd = () => {
     let flagCopy = { ...flag };
-    flagCopy.isPlay = false;
+    setIsPlay(false);
     setFlag(flagCopy);
+  };
+
+  // 等待缓冲
+  const waitLoadVideo = () => {
+    if (videoRef !== null && videoRef.current) {
+      // 暂停
+      let flagCopy = { ...flag };
+      setIsPlay(false);
+      flagCopy.isWaitBuffer = true;
+      setFlag(flagCopy);
+      let nonStateDepCopy = { ...nonStateDep };
+      nonStateDepCopy.isShowLoadingBack = true;
+      setNonStateDep(nonStateDepCopy);
+    }
+  };
+
+  // 等待缓存结束
+  const waitEnd = () => {
+    if (videoRef !== null && videoRef.current) {
+      // 暂停
+      let flagCopy = { ...flag };
+      setIsPlay(true);
+      flagCopy.isWaitBuffer = false;
+      setFlag(flagCopy);
+      let nonStateDepCopy = { ...nonStateDep };
+      nonStateDepCopy.isShowLoadingBack = false;
+      setNonStateDep(nonStateDepCopy);
+    }
   };
 
   /**
@@ -212,8 +260,8 @@ export const ReactVideoPlayer = (props: Props) => {
   const mouseUpBar = () => {
     let flagCopy = { ...flag };
     flagCopy.isCurrentClickBar = false;
-    if (flag.isPlay === false) {
-      flagCopy.isPlay = true;
+    if (isPlay === false) {
+      setIsPlay(true);
       if (videoRef !== null && videoRef.current) {
         videoRef.current.play();
       }
@@ -221,10 +269,62 @@ export const ReactVideoPlayer = (props: Props) => {
     setFlag(flagCopy);
   };
 
+  /**
+   * 音量控制
+   */
+  const increaseVolume = () => {
+    if (videoRef !== null && videoRef.current) {
+      videoRef.current.muted = false;
+      if (videoRef.current.volume === 1) {
+      } else {
+        videoRef.current.volume = (videoRef.current.volume * 10 + 1) / 10;
+      }
+      let flagCopy = { ...flag };
+      flagCopy.volume = videoRef.current.volume;
+      setFlag(flagCopy);
+    }
+  };
+  const decreaseVolume = () => {
+    if (videoRef !== null && videoRef.current) {
+      videoRef.current.muted = false;
+      if (videoRef.current.volume === 0) {
+        if (!videoRef.current.muted) {
+          videoRef.current.muted = true;
+        }
+      } else {
+        videoRef.current.volume = (videoRef.current.volume * 10 - 1) / 10;
+      }
+      let flagCopy = { ...flag };
+      flagCopy.volume = videoRef.current.volume;
+      setFlag(flagCopy);
+    }
+  };
+  const volumeChange = () => {
+    if (!nonStateDep.isShowVolumeBack) {
+      let nonStateDepCopy = { ...nonStateDep };
+      nonStateDepCopy.isShowVolumeBack = true;
+      setNonStateDep(nonStateDepCopy);
+    }
+    if (timer.current.volumeTimer) {
+      clearTimeout(timer.current.volumeTimer);
+    }
+    timer.current.volumeTimer = setTimeout(() => {
+      let nonStateDepCopy = { ...nonStateDep };
+      nonStateDepCopy.isShowVolumeBack = false;
+      setNonStateDep(nonStateDepCopy);
+    }, 2000);
+  };
+
   useEffect(() => {
     window.onkeydown = (e: KeyboardEvent) => {
       switch (e.code) {
         case 'Space':
+          break;
+        case 'ArrowUp':
+          increaseVolume();
+          break;
+        case 'ArrowDown':
+          decreaseVolume();
           break;
       }
     };
@@ -250,7 +350,6 @@ export const ReactVideoPlayer = (props: Props) => {
       {/* 视频 */}
       <Video
         style={{ height: sharedState.height, width: sharedState.width }}
-        muted
         ref={videoRef}
         onClick={playOrPause}
         onLoadedData={getInfo}
@@ -260,9 +359,62 @@ export const ReactVideoPlayer = (props: Props) => {
         }}
         onProgress={updateBufferBar}
         onEnded={playEnd}
+        onWaiting={waitLoadVideo}
+        onPlaying={waitEnd}
+        onVolumeChange={volumeChange}
       >
         <source src={sharedState.videoUrl} />
       </Video>
+      {/* 音量选项 */}
+      {/* <VolumeOptions></VolumeOptions> */}
+
+      {/* 音量 */}
+      {nonStateDep.isShowVolumeBack ? (
+        <VolumeBack>
+          <Volume>
+            {flag.volume === 0 ? (
+              <svg
+                className="icon"
+                viewBox="0 0 1024 1024"
+                version="1.1"
+                xmlns="http://www.w3.org/2000/svg"
+                p-id="1770"
+                width="30"
+                height="30"
+              >
+                <path
+                  d="M0.002433 672V352a53.393333 53.393333 0 0 1 53.333334-53.333333h172.5l207.08-207.086667A21.333333 21.333333 0 0 1 469.335767 106.666667v189.413333L41.435767 724A53.42 53.42 0 0 1 0.002433 672z m633.753334-452.42a21.333333 21.333333 0 0 0-30.173334 0l-597.333333 597.333333a21.333333 21.333333 0 0 0 30.173333 30.173334L158.1691 725.333333h67.666667l207.08 207.086667A21.333333 21.333333 0 0 0 469.335767 917.333333V414.166667l164.42-164.413334a21.333333 21.333333 0 0 0 0-30.173333z"
+                  fill="#000000"
+                  p-id="1771"
+                ></path>
+              </svg>
+            ) : (
+              <svg
+                className="icon"
+                viewBox="0 0 1024 1024"
+                version="1.1"
+                xmlns="http://www.w3.org/2000/svg"
+                p-id="1403"
+                width="30"
+                height="30"
+              >
+                <path
+                  d="M260.256 356.576l204.288-163.968a32 32 0 0 1 52.032 24.96v610.432a32 32 0 0 1-51.968 24.992l-209.92-167.552H96a32 32 0 0 1-32-32v-264.864a32 32 0 0 1 32-32h164.256zM670.784 720.128a32 32 0 0 1-44.832-45.664 214.08 214.08 0 0 0 64.32-153.312 213.92 213.92 0 0 0-55.776-144.448 32 32 0 1 1 47.36-43.04 277.92 277.92 0 0 1 72.416 187.488 278.08 278.08 0 0 1-83.488 198.976zM822.912 858.88a32 32 0 1 1-45.888-44.608A419.008 419.008 0 0 0 896 521.152c0-108.704-41.376-210.848-114.432-288.384a32 32 0 0 1 46.592-43.872c84.16 89.28 131.84 207.04 131.84 332.256 0 127.84-49.76 247.904-137.088 337.728z"
+                  p-id="1404"
+                  fill="#000000"
+                ></path>
+              </svg>
+            )}
+            {flag.volume === 0 ? '静音' : flag.volume * 100 + '%'}
+          </Volume>
+        </VolumeBack>
+      ) : null}
+
+      {/* loading */}
+      {nonStateDep.isShowLoadingBack ? (
+        <Load>{flag.isWaitBuffer ? <Loading></Loading> : null}</Load>
+      ) : null}
+
       {/* 缩略图 */}
       <DetailVideo
         ref={DetailVideoRef}
@@ -274,6 +426,7 @@ export const ReactVideoPlayer = (props: Props) => {
       >
         <source src={sharedState.minVideoUrl} />
       </DetailVideo>
+
       {/* 进度条 */}
       <Bar
         onMouseEnter={mouseEnterBar}
@@ -305,14 +458,53 @@ export const ReactVideoPlayer = (props: Props) => {
         {/* 背景条 */}
         <BackBar style={{ height: barState.height }}></BackBar>
       </Bar>
+
       {/* 控制台 */}
       <Control>
+        {/* 播放 暂停 */}
         <div onClick={playOrPause}>
-          {flag.isPlay ? <Pause></Pause> : <Play></Play>}
+          {isPlay ? <Pause></Pause> : <Play></Play>}
         </div>
+        {/* 时间戳 */}
         <StampTime>
           {flag.formatCurrentTime} / {sharedState.formatDuration}
         </StampTime>
+        {/*音量 */}
+        <ControlVolume>
+          {flag.volume === 0 ? (
+            <svg
+              className="icon"
+              viewBox="0 0 1024 1024"
+              version="1.1"
+              xmlns="http://www.w3.org/2000/svg"
+              p-id="1770"
+              width="20"
+              height="20"
+            >
+              <path
+                d="M0.002433 672V352a53.393333 53.393333 0 0 1 53.333334-53.333333h172.5l207.08-207.086667A21.333333 21.333333 0 0 1 469.335767 106.666667v189.413333L41.435767 724A53.42 53.42 0 0 1 0.002433 672z m633.753334-452.42a21.333333 21.333333 0 0 0-30.173334 0l-597.333333 597.333333a21.333333 21.333333 0 0 0 30.173333 30.173334L158.1691 725.333333h67.666667l207.08 207.086667A21.333333 21.333333 0 0 0 469.335767 917.333333V414.166667l164.42-164.413334a21.333333 21.333333 0 0 0 0-30.173333z"
+                fill="#ffff"
+                p-id="1771"
+              ></path>
+            </svg>
+          ) : (
+            <svg
+              className="icon"
+              viewBox="0 0 1024 1024"
+              version="1.1"
+              xmlns="http://www.w3.org/2000/svg"
+              p-id="1403"
+              width="20"
+              height="20"
+            >
+              <path
+                d="M260.256 356.576l204.288-163.968a32 32 0 0 1 52.032 24.96v610.432a32 32 0 0 1-51.968 24.992l-209.92-167.552H96a32 32 0 0 1-32-32v-264.864a32 32 0 0 1 32-32h164.256zM670.784 720.128a32 32 0 0 1-44.832-45.664 214.08 214.08 0 0 0 64.32-153.312 213.92 213.92 0 0 0-55.776-144.448 32 32 0 1 1 47.36-43.04 277.92 277.92 0 0 1 72.416 187.488 278.08 278.08 0 0 1-83.488 198.976zM822.912 858.88a32 32 0 1 1-45.888-44.608A419.008 419.008 0 0 0 896 521.152c0-108.704-41.376-210.848-114.432-288.384a32 32 0 0 1 46.592-43.872c84.16 89.28 131.84 207.04 131.84 332.256 0 127.84-49.76 247.904-137.088 337.728z"
+                p-id="1404"
+                fill="#ffff"
+              ></path>
+            </svg>
+          )}
+        </ControlVolume>
       </Control>
     </Wrap>
   );

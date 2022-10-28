@@ -70,3 +70,60 @@ export const DetailVideo = styled.video`
   width: 180px;
   height: 100px;
 `;
+
+export const Load = styled.div`
+  position: absolute;
+  z-index: 6;
+  top: 0%;
+  bottom: 50px;
+  left: 0%;
+  right: 0%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const Loading = styled.div`
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #ededed;
+  border-top-color: rgba(186, 186, 186, 0.2);
+  border-right-color: rgba(186, 186, 186, 0.2);
+  border-bottom-color: rgba(186, 186, 186, 0.2);
+  border-radius: 100%;
+
+  animation: circle infinite 0.75s linear;
+  @keyframes circle {
+    0% {
+      transform: rotate(0);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+export const VolumeBack = styled.div`
+  position: absolute;
+  z-index: 7;
+  top: 0%;
+  bottom: 50px;
+  left: 0%;
+  right: 0%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const Volume = styled.div`
+  background-color: white;
+  border-radius: 5px;
+  color: black;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  padding: 5px 5px;
+`;
+
+export const ControlVolume = styled.div``;

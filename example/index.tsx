@@ -8,7 +8,7 @@ const App = () => {
       <ReactVideoPlayer
         high="530px"
         long="700px"
-        videoUrl="http://bezos.life/download.mp4"
+        videoUrl="http://bezos.life/test-video.mp4"
         bufferColor="pink"
       />
     </div>

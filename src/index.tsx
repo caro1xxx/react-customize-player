@@ -349,6 +349,7 @@ export const ReactVideoPlayer = (props: Props) => {
     >
       {/* 视频 */}
       <Video
+        preload="metadata"
         style={{ height: sharedState.height, width: sharedState.width }}
         ref={videoRef}
         onClick={playOrPause}
@@ -415,7 +416,7 @@ export const ReactVideoPlayer = (props: Props) => {
         <Load>{flag.isWaitBuffer ? <Loading></Loading> : null}</Load>
       ) : null}
 
-      {/* 缩略图 */}
+      {/* 预览图*/}
       <DetailVideo
         ref={DetailVideoRef}
         muted
